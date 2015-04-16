@@ -24,7 +24,12 @@
 #define HSE   0x04
 #define LSE   0x08
 
-char flag = 0;
+#define RX_BUFFER_SIZE	1		// Объявляем размер буфера приема
+char rx_buffer[RX_BUFFER_SIZE];	// Объявляем буфер приема
+unsigned char read_enable = 0;
+unsigned char rx_wr_index;
+
+// char flag = 0; тестовый флаг для мигания светодиодом, пока не нужен
 int main( void )
 {
   	/* Настройка GPIO */
@@ -81,12 +86,26 @@ int main( void )
 /* Обработчик прерывания по приему UART */
 #pragma vector = USART_R_RXNE_vector
 __interrupt void uart_rx_interrupt(void) {
-	int data = USART1_DR;
+	char data;				// Объявляем переменную дата для хранения байта
+	data = USART1_DR;		// Читаем байт из регистра в переменную data
+	/* Определяем начало пакета по первому байту */
+	if (data == '*') {
+		rx_wr_index = 0;	// Устанавливаем флаг указателя на байты для считывания
+		read_enable = 1;	// Устанавливаем флаг разрешения на чтение в буфер
+	}
+	/* Определяем конец пакета по последнему байту $*/
+	if ((data == '$') && read_enable == 1) {
+		read_enable = 0;	// Запрещаем читать в буфер приема
+	}
+	/* Читаем в буфер, если флаг read_enable установлен */
+	if (read_enable == 1) {
+		rx_buffer[rx_wr_index++] = data;	// Читаем в буфер приема байты
+	}
 	
-	/* Тестовая мигалка */
+	/* Тестовая мигалка пока не нужна
 	if (flag) {
 		PC_ODR |= (1 << 7);
 	}
 	else PC_ODR &= ~(1 << 7);
-	flag = ~flag;
+	flag = ~flag; */
 }
